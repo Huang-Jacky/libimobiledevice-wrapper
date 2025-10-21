@@ -39,7 +39,7 @@ pip install libimobiledevice-wrapper
 或从源码安装：
 
 ```bash
-git clone https://github.com/yourusername/libimobiledevice-wrapper.git
+git clone https://github.com/Huang-Jacky/libimobiledevice-wrapper.git
 cd libimobiledevice-wrapper
 pip install -e .
 ```

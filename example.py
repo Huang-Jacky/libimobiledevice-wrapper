@@ -6,6 +6,7 @@ libimobiledevice-wrapper 使用示例
 
 import asyncio
 import json
+import time
 from pathlib import Path
 
 from libimobiledevice_wrapper import LibiMobileDevice, WebDriverAgent, LibiMobileDeviceError, WebDriverAgentError
@@ -269,7 +270,7 @@ def file_operations_example():
 
         # 创建测试文件
         test_file = Path("test_file.txt")
-        test_content = f"这是测试文件，创建时间: {asyncio.get_event_loop().time()}"
+        test_content = f"这是测试文件，创建时间: {time.time()}"
         test_file.write_text(test_content, encoding='utf-8')
 
         # 推送文件到设备

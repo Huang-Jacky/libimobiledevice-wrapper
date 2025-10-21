@@ -11,8 +11,8 @@ from typing import List
 
 import pytest
 
-from core import LibiMobileDevice, LibiMobileDeviceError
-from webdriveragent import WebDriverAgent, WebDriverAgentError
+from .core import LibiMobileDevice, LibiMobileDeviceError
+from .webdriveragent import WebDriverAgent, WebDriverAgentError
 
 
 class TestLibiMobileDevice:
