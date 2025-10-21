@@ -425,6 +425,33 @@ def app_install_uninstall_example():
         print(f"应用安装/卸载操作失败: {e}")
 
 
+def screenshot_example():
+    """截屏示例"""
+    print("\n=== 截屏示例 ===")
+
+    try:
+        device = LibiMobileDevice()
+        devices = device.list_devices()
+
+        if not devices:
+            print("没有连接的设备")
+            return
+
+        udid = devices[0]
+
+        # 截屏示例
+        print("截屏示例...")
+        screenshot_path = f"screenshot_{udid}.png"
+        try:
+            device.take_screenshot(udid, screenshot_path)
+            print(f"✓ 截屏成功: {screenshot_path}")
+        except LibiMobileDeviceError as e:
+            print(f"截屏失败: {e}")
+
+    except LibiMobileDeviceError as e:
+        print(f"截屏操作失败: {e}")
+
+
 def cli_commands_example():
     """CLI 命令使用示例"""
     print("\n=== CLI 命令使用示例 ===")
@@ -455,12 +482,16 @@ def cli_commands_example():
     print("   libidevice device-logs --udid <udid> --duration 30 --keywords 'error'")
     print()
 
-    print("5. 系统操作:")
+    print("5. 截屏:")
+    print("   libidevice screenshot --udid <udid> --output screenshot.png")
+    print()
+
+    print("6. 系统操作:")
     print("   libidevice reboot --udid <udid>            # 重启设备")
     print("   libidevice shutdown --udid <udid>          # 关机设备")
     print()
 
-    print("6. 模块方式使用:")
+    print("7. 模块方式使用:")
     print("   python3 -m libimobiledevice_wrapper.cli <command>")
 
 
@@ -495,6 +526,9 @@ async def main():
 
     # 应用安装/卸载示例
     app_install_uninstall_example()
+
+    # 截屏示例
+    screenshot_example()
 
     # CLI 命令示例
     cli_commands_example()

@@ -86,6 +86,15 @@ libidevice install --udid <device_udid> /path/to/app.ipa
 # 获取应用信息
 libidevice app-info --udid <device_udid> --bundle-id com.example.app
 
+# 截取屏幕截图
+libidevice screenshot --udid <device_udid> --output screenshot.png
+
+**注意：截屏功能需要开发者磁盘镜像支持**
+- 如果遇到 "Could not start screenshotr service!" 错误
+- 系统会自动尝试挂载开发者磁盘镜像
+- 如果自动挂载失败，请确保已安装对应版本的 Xcode
+- 或手动挂载：`ideviceimagemounter -u <udid> <path_to_DeveloperDiskImage.dmg>`
+
 # 简洁日志捕获
 device = LibiMobileDevice()
 monitor = device.monitor_device_logs(
@@ -138,14 +147,18 @@ python3 -m libimobiledevice_wrapper.cli device-logs --udid <device_udid> --durat
 # 实时监控设备日志
 python3 -m libimobiledevice_wrapper.cli device-logs --udid <device_udid> --keywords "error"
 
+# 截取屏幕截图
+python3 -m libimobiledevice_wrapper.cli screenshot --udid <device_udid> --output screenshot.png
+
 # 启动应用
 python3 -m libimobiledevice_wrapper.cli launch --udid <device_udid> --bundle-id com.example.app
 ```
 
-**注意：启动应用功能需要开发者磁盘镜像支持**
-- 如果遇到 "Could not start com.apple.debugserver!" 错误
-- 需要先挂载开发者磁盘镜像：`ideviceimagemounter -u <udid> <path_to_DeveloperDiskImage.dmg>`
-- 或者手动在设备上启动应用，然后使用日志监控功能
+**注意：截屏和启动应用功能需要开发者磁盘镜像支持**
+- 截屏功能：如果遇到 "Could not start screenshotr service!" 错误，系统会自动尝试挂载开发者磁盘镜像
+- 启动应用功能：如果遇到 "Could not start com.apple.debugserver!" 错误，需要先挂载开发者磁盘镜像
+- 手动挂载：`ideviceimagemounter -u <udid> <path_to_DeveloperDiskImage.dmg>`
+- 确保已安装对应版本的 Xcode 以获得正确的开发者磁盘镜像
 
 ## API 文档
 
@@ -176,6 +189,11 @@ python3 -m libimobiledevice_wrapper.cli launch --udid <device_udid> --bundle-id 
 
 - `reboot_device(udid)` - 重启设备
 - `shutdown_device(udid)` - 关机设备
+
+#### 截屏
+
+- `take_screenshot(udid, output_path)` - 截取设备屏幕截图（需要开发者磁盘镜像支持）
+- `take_screenshot_async(udid, output_path)` - 异步截取设备屏幕截图（需要开发者磁盘镜像支持）
 
 #### 日志管理
 

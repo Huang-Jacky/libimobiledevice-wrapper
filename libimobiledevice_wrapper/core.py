@@ -586,6 +586,142 @@ class LibiMobileDevice:
         """异步关机设备"""
         await self._run_command_async(["idevicediagnostics", "-u", udid, "shutdown"])
 
+    def take_screenshot(self, udid: str, output_path: Union[str, Path]) -> None:
+        """
+        使用 idevicescreenshot 直接截屏
+        
+        Args:
+            udid: 设备 UDID
+            output_path: 截图保存路径
+        """
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        try:
+            self._run_command(["idevicescreenshot", "-u", udid, str(output_path)])
+        except LibiMobileDeviceError as e:
+            if "screenshotr service" in str(e) or "Developer disk image" in str(e):
+                logger.warning("截屏服务不可用，尝试挂载开发者磁盘镜像...")
+                try:
+                    self._mount_developer_disk_image(udid)
+                    # 重试截屏
+                    self._run_command(["idevicescreenshot", "-u", udid, str(output_path)])
+                    logger.info("开发者磁盘镜像挂载成功，截屏完成")
+                except LibiMobileDeviceError as mount_error:
+                    raise LibiMobileDeviceError(
+                        f"截屏失败: {mount_error}\n"
+                        f"请手动挂载开发者磁盘镜像:\n"
+                        f"ideviceimagemounter -u {udid} <path_to_DeveloperDiskImage.dmg>"
+                    )
+            else:
+                raise e
+
+    def _mount_developer_disk_image(self, udid: str) -> None:
+        """
+        尝试自动挂载开发者磁盘镜像
+        
+        Args:
+            udid: 设备 UDID
+        """
+        # 获取设备信息以确定 iOS 版本
+        try:
+            device_info = self.get_device_info(udid)
+            ios_version = device_info.get('ProductVersion', '')
+            logger.info(f"检测到 iOS 版本: {ios_version}")
+        except Exception as e:
+            logger.warning(f"无法获取设备信息: {e}")
+            raise LibiMobileDeviceError(
+                "无法获取设备信息，请手动挂载开发者磁盘镜像"
+            )
+
+        # 尝试常见的开发者磁盘镜像路径
+        possible_paths = [
+            # 精确版本匹配
+            f"/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/DeviceSupport/{ios_version}/DeveloperDiskImage.dmg",
+            f"/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/DeviceSupport/{ios_version}/DeveloperDiskImage.dmg.signature",
+            # 主版本匹配
+            f"/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/DeviceSupport/{ios_version.split('.')[0]}.{ios_version.split('.')[1]}/DeveloperDiskImage.dmg",
+            f"/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/DeviceSupport/{ios_version.split('.')[0]}.{ios_version.split('.')[1]}/DeveloperDiskImage.dmg.signature",
+        ]
+
+        # 如果精确匹配失败，尝试查找可用的版本
+        if not any(Path(p).exists() for p in possible_paths):
+            logger.info("精确版本匹配失败，尝试查找可用的开发者磁盘镜像...")
+            import os
+            device_support_path = "/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/DeviceSupport/"
+            if os.path.exists(device_support_path):
+                available_versions = [d for d in os.listdir(device_support_path)
+                                      if os.path.isdir(os.path.join(device_support_path, d))]
+                logger.info(f"可用的开发者磁盘镜像版本: {available_versions}")
+
+                # 按版本号排序，优先使用较新的版本
+                available_versions.sort(key=lambda x: [int(v) for v in x.split('.')], reverse=True)
+
+                for version in available_versions:
+                    version_paths = [
+                        f"{device_support_path}{version}/DeveloperDiskImage.dmg",
+                        f"{device_support_path}{version}/DeveloperDiskImage.dmg.signature",
+                    ]
+                    if all(Path(p).exists() for p in version_paths):
+                        possible_paths.extend(version_paths)
+                        logger.info(f"找到可用的开发者磁盘镜像版本: {version}")
+                        break
+
+        dmg_path = None
+        sig_path = None
+
+        for path in possible_paths:
+            if Path(path).exists():
+                if path.endswith('.dmg'):
+                    dmg_path = path
+                elif path.endswith('.signature'):
+                    sig_path = path
+
+        if not dmg_path:
+            raise LibiMobileDeviceError(
+                f"未找到 iOS {ios_version} 的开发者磁盘镜像\n"
+                f"请确保已安装对应版本的 Xcode，或手动指定路径:\n"
+                f"ideviceimagemounter -u {udid} <path_to_DeveloperDiskImage.dmg>"
+            )
+
+        # 挂载开发者磁盘镜像
+        cmd = ["ideviceimagemounter", "-u", udid, dmg_path]
+        if sig_path:
+            cmd.append(sig_path)
+
+        try:
+            self._run_command(cmd)
+            logger.info(f"成功挂载开发者磁盘镜像: {dmg_path}")
+        except LibiMobileDeviceError as e:
+            raise LibiMobileDeviceError(
+                f"挂载开发者磁盘镜像失败: {e}\n"
+                f"请检查 Xcode 安装和设备信任状态"
+            )
+
+    async def take_screenshot_async(self, udid: str, output_path: Union[str, Path]) -> None:
+        """异步使用 idevicescreenshot 直接截屏"""
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        try:
+            await self._run_command_async(["idevicescreenshot", "-u", udid, str(output_path)])
+        except LibiMobileDeviceError as e:
+            if "screenshotr service" in str(e) or "Developer disk image" in str(e):
+                logger.warning("截屏服务不可用，尝试挂载开发者磁盘镜像...")
+                try:
+                    self._mount_developer_disk_image(udid)
+                    # 重试截屏
+                    await self._run_command_async(["idevicescreenshot", "-u", udid, str(output_path)])
+                    logger.info("开发者磁盘镜像挂载成功，截屏完成")
+                except LibiMobileDeviceError as mount_error:
+                    raise LibiMobileDeviceError(
+                        f"截屏失败: {mount_error}\n"
+                        f"请手动挂载开发者磁盘镜像:\n"
+                        f"ideviceimagemounter -u {udid} <path_to_DeveloperDiskImage.dmg>"
+                    )
+            else:
+                raise e
+
     def get_device_logs(self, udid: str, duration: Optional[int] = None,
                         keywords: Optional[List[str]] = None,
                         output_file: Optional[Union[str, Path]] = None) -> List[Dict[str, Any]]:

@@ -566,5 +566,34 @@ def install(udid: str, app_path: str):
     asyncio.run(_install())
 
 
+@main.command()
+@click.option('--udid', required=True, help='设备 UDID')
+@click.option('--output', required=True, type=click.Path(), help='截图保存路径')
+def screenshot(udid: str, output: str):
+    """截取设备屏幕截图"""
+    try:
+        device = LibiMobileDevice()
+
+        with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                console=console,
+        ) as progress:
+            task = progress.add_task("正在截取屏幕截图...", total=None)
+
+            device.take_screenshot(udid, output)
+            progress.update(task, description="[green]截图完成!")
+
+        console.print(f"[green]✓ 屏幕截图已保存: {output}[/green]")
+
+    except LibiMobileDeviceError as e:
+        console.print(f"[red]错误: {e}[/red]")
+        sys.exit(1)
+
+
+
+
+
+
 if __name__ == '__main__':
     main()
