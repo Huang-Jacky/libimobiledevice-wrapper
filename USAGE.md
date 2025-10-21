@@ -120,19 +120,19 @@ async def main():
             print(f"设备日志: {len(logs)} 条")
             
             # 简洁日志捕获
-            capture = device.capture_device_logs(
+            monitor = device.monitor_device_logs(
                 udid, 
+                keywords=['error'],
                 log_file_path="device_logs.txt",
-                keywords=['error', 'MTG'],
                 duration=30  # 30秒后自动停止
             )
-            capture.start()
+            monitor.start()
             time.sleep(20)  # 捕获20秒
-            capture.stop()  # 自动保存到文件
-            print(f"日志已保存，共 {capture.get_log_count()} 条")
+            monitor.stop()  # 自动保存到文件
+            print(f"日志已保存，共 {len(monitor.get_logs())} 条")
             
             # 或使用上下文管理器
-            with device.capture_device_logs(udid, "auto_logs.txt", ['MTG']) as auto_capture:
+            with device.monitor_device_logs(udid, keywords=['error'], log_file_path="auto_logs.txt") as auto_monitor:
                 time.sleep(15)
             # 自动停止并保存
 
@@ -168,7 +168,7 @@ async def main():
 
 #### 简洁日志捕获
 
-- `capture_device_logs(udid, log_file_path, keywords, duration)` - 简洁的设备日志捕获
+- `monitor_device_logs(udid, keywords, callback, log_file_path, duration)` - 设备日志监控
   - 自动保存到文件，无需手动调用 save_logs
   - 支持关键字过滤
   - 支持指定时长自动停止

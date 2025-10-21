@@ -88,18 +88,18 @@ libidevice app-info --udid <device_udid> --bundle-id com.example.app
 
 # 简洁日志捕获
 device = LibiMobileDevice()
-capture = device.capture_device_logs(
+monitor = device.monitor_device_logs(
     udid="<device_udid>",
-    log_file_path="logs.txt",
     keywords=["error", "MTG"],
+    log_file_path="logs.txt",
     duration=60  # 60秒后自动停止
 )
-capture.start()
+monitor.start()
 time.sleep(30)  # 捕获30秒
-capture.stop()  # 自动保存到文件
+monitor.stop()  # 自动保存到文件
 
 # 或使用上下文管理器
-with device.capture_device_logs(udid="<device_udid>", log_file_path="logs.txt") as capture:
+with device.monitor_device_logs(udid="<device_udid>", keywords=["error"], log_file_path="logs.txt") as monitor:
     time.sleep(30)
 # 自动停止并保存
 
@@ -180,8 +180,7 @@ python3 -m libimobiledevice_wrapper.cli launch --udid <device_udid> --bundle-id 
 #### 日志管理
 
 - `get_device_logs(udid, duration, keywords)` - 获取设备日志
-- `monitor_device_logs(udid, keywords)` - 实时监控设备日志
-- `capture_device_logs(udid, log_file_path, keywords, duration)` - 简洁的设备日志捕获
+- `monitor_device_logs(udid, keywords, callback, log_file_path, duration)` - 实时监控设备日志
   - 自动保存到文件，无需手动调用 save_logs
   - 支持关键字过滤
   - 支持指定时长自动停止
