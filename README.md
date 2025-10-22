@@ -246,25 +246,6 @@ await wda.start()
 session = await wda.create_session()
 ```
 
-## 开发
-
-### 运行测试
-
-```bash
-pytest
-```
-
-### 代码格式化
-
-```bash
-black libimobiledevice_wrapper/
-```
-
-### 类型检查
-
-```bash
-mypy libimobiledevice_wrapper/
-```
 
 ## 许可证
 

@@ -1050,36 +1050,83 @@ class LogMonitor:
         import re
 
         # 标准 iOS 系统日志格式
-        pattern = r'^(\w{3} \d{1,2} \d{2}:\d{2}:\d{2}) (\w+(?:\([^)]+\))?)\[(\d+)\] (.+)$'
+        pattern = r'^(\w{3} \d{1,2} \d{2}:\d{2}:\d{2}) ([^[]+)\[(\d+)\] (.+)$'
         match = re.match(pattern, line)
 
         if match:
             timestamp, process, pid, message = match.groups()
+            
+            # 提取日志级别
+            level = 'Info'  # 默认级别
+            if '<Error>:' in message:
+                level = 'Error'
+            elif '<Notice>:' in message:
+                level = 'Notice'
+            elif '<Warning>:' in message:
+                level = 'Warning'
+            elif '<Debug>:' in message:
+                level = 'Debug'
+            
+            # 清理消息内容
+            clean_message = message
+            if '<' in message and '>:' in message:
+                # 移除 <Level>: 前缀
+                clean_message = re.sub(r'^<[^>]+>:\s*', '', message)
+            
             return {
                 'timestamp': timestamp,
-                'process': process,
+                'process': process.strip(),
                 'pid': pid,
                 'subsystem': 'System',
-                'level': 'Info',
-                'message': message
+                'level': level,
+                'message': clean_message,
+                'raw_line': line  # 保存原始行
             }
 
-        # 应用特定日志格式
-        app_pattern = r'-\[([^\]]+)\][^[]*\[Line (\d+)\] (.+)$'
-        app_match = re.match(app_pattern, line)
-
-        if app_match:
-            method_name, line_num, message = app_match.groups()
+        # 如果标准格式不匹配，尝试其他格式
+        # 匹配没有时间戳的日志行
+        simple_pattern = r'^([^[]+)\[(\d+)\] (.+)$'
+        simple_match = re.match(simple_pattern, line)
+        
+        if simple_match:
+            process, pid, message = simple_match.groups()
+            
+            # 提取日志级别
+            level = 'Info'
+            if '<Error>:' in message:
+                level = 'Error'
+            elif '<Notice>:' in message:
+                level = 'Notice'
+            elif '<Warning>:' in message:
+                level = 'Warning'
+            elif '<Debug>:' in message:
+                level = 'Debug'
+            
+            # 清理消息内容
+            clean_message = message
+            if '<' in message and '>:' in message:
+                clean_message = re.sub(r'^<[^>]+>:\s*', '', message)
+            
             return {
                 'timestamp': '',
-                'process': 'App',
-                'pid': '',
-                'subsystem': 'App',
-                'level': 'Debug',
-                'message': f'[{method_name}] [Line {line_num}] {message}'
+                'process': process.strip(),
+                'pid': pid,
+                'subsystem': 'System',
+                'level': level,
+                'message': clean_message,
+                'raw_line': line
             }
 
-        return None
+        # 如果都不匹配，返回原始行
+        return {
+            'timestamp': '',
+            'process': 'Unknown',
+            'pid': '',
+            'subsystem': 'System',
+            'level': 'Info',
+            'message': line,
+            'raw_line': line
+        }
 
     def _matches_keywords(self, log_entry: Dict[str, Any], keywords: List[str]) -> bool:
         """检查日志是否匹配关键字"""
@@ -1110,6 +1157,10 @@ class LogMonitor:
                 text=False
             )
 
+            # 用于跟踪多行日志的状态
+            current_log_group = []  # 当前日志组
+            group_has_match = False  # 当前组是否有匹配
+
             while not self.stop_event.is_set():
                 if self.process.poll() is not None:
                     break
@@ -1120,41 +1171,97 @@ class LogMonitor:
                     continue
 
                 try:
-                    line = line_bytes.decode('utf-8', errors='replace').strip()
+                    line = line_bytes.decode('utf-8', errors='replace').rstrip('\n\r')
                 except UnicodeDecodeError:
                     try:
-                        line = line_bytes.decode('latin-1', errors='replace').strip()
+                        line = line_bytes.decode('latin-1', errors='replace').rstrip('\n\r')
                     except UnicodeDecodeError:
-                        line = line_bytes.decode('utf-8', errors='ignore').strip()
+                        line = line_bytes.decode('utf-8', errors='ignore').rstrip('\n\r')
 
                 if line == "[connected]":
                     continue
 
-                log_entry = self._parse_log_line(line)
-
-                if log_entry:
-                    if self.keywords and not self._matches_keywords(log_entry, self.keywords):
-                        continue
-
-                    self.logs.append(log_entry)
-
-                    if self.callback:
-                        self.callback(log_entry)
-                    else:
-                        print(f"[{log_entry['level']}] {log_entry['message']}")
+                # 检查是否是新的日志条目（有时间戳）
+                is_new_log_entry = self._is_new_log_entry(line)
+                
+                if is_new_log_entry:
+                    # 处理之前的日志组
+                    if current_log_group:
+                        self._process_log_group(current_log_group, group_has_match)
+                    
+                    # 开始新的日志组
+                    current_log_group = [line]
+                    group_has_match = self._check_group_match([line])
                 else:
-                    if self.keywords:
-                        if not any(keyword.lower() in line.lower() for keyword in self.keywords):
-                            continue
-
-                    print(line)
+                    # 继续当前日志组
+                    current_log_group.append(line)
+                    if not group_has_match:
+                        group_has_match = self._check_group_match([line])
 
         except Exception as e:
             import logging
             logger = logging.getLogger(__name__)
             logger.error(f"日志监控错误: {e}")
         finally:
+            # 处理最后一个日志组
+            if current_log_group:
+                self._process_log_group(current_log_group, group_has_match)
             self._cleanup()
+
+    def _is_new_log_entry(self, line: str) -> bool:
+        """检查是否是新的日志条目（有时间戳）"""
+        import re
+        pattern = r'^(\w{3} \d{1,2} \d{2}:\d{2}:\d{2}) ([^[]+)\[(\d+)\]'
+        return bool(re.match(pattern, line))
+
+    def _check_group_match(self, lines: List[str]) -> bool:
+        """检查日志组是否匹配关键字"""
+        if not self.keywords:
+            return True
+        
+        # 将整个日志组合并为一个字符串进行检查
+        group_text = ' '.join(lines).lower()
+        return any(keyword.lower() in group_text for keyword in self.keywords)
+
+    def _process_log_group(self, log_group: List[str], has_match: bool):
+        """处理一个完整的日志组"""
+        if not has_match:
+            return 
+        
+        for line in log_group:
+            log_entry = self._parse_log_line(line)
+
+            if log_entry:
+                self.logs.append(log_entry)
+
+                # 写入文件（如果指定了文件路径）- 使用原始格式
+                if self.file_handle:
+                    self.file_handle.write(line + '\n')
+                    self.file_handle.flush()
+
+                if self.callback:
+                    self.callback(log_entry)
+                elif not self.file_handle:
+                    print(line)
+            else:
+                # 对于无法解析的行，也记录到日志列表
+                raw_entry = {
+                    'timestamp': '',
+                    'process': 'Raw',
+                    'pid': '',
+                    'subsystem': 'System',
+                    'level': 'Info',
+                    'message': line,
+                    'raw_line': line
+                }
+                self.logs.append(raw_entry)
+
+                # 写入文件 - 保持原始格式
+                if self.file_handle:
+                    self.file_handle.write(line + '\n')
+                    self.file_handle.flush()
+                elif not self.file_handle:
+                    print(line)
 
     def _cleanup(self):
         """清理资源"""
@@ -1191,6 +1298,10 @@ class LogMonitor:
             logger = logging.getLogger(__name__)
             logger.warning("日志监控已在运行")
             return
+
+        if self.log_file_path:
+            self.log_file_path.parent.mkdir(parents=True, exist_ok=True)
+            self.file_handle = open(self.log_file_path, 'w', encoding='utf-8')
 
         self.stop_event.clear()
         self.monitor_thread = threading.Thread(target=self._log_monitor, daemon=True)
