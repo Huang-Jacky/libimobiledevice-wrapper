@@ -3,7 +3,7 @@
 libimobiledevice-wrapper 包的主模块
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __author__ = "Huang-Jacky"
 __email__ = "hjc853@gmail.com"
 

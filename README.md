@@ -99,7 +99,7 @@ libidevice screenshot --udid <device_udid> --output screenshot.png
 device = LibiMobileDevice()
 monitor = device.monitor_device_logs(
     udid="<device_udid>",
-    keywords=["error", "MTG"],
+    keywords=["error", "exception"],
     log_file_path="logs.txt",
     duration=60  # 60秒后自动停止
 )
