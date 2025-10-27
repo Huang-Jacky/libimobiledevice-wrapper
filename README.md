@@ -17,18 +17,23 @@
 
 ### 前置要求
 
-确保系统已安装 libimobiledevice：
+确保系统已安装 libimobiledevice 和 ideviceinstaller：
 
 ```bash
 # macOS
-brew install libimobiledevice
+brew install libimobiledevice ideviceinstaller
 
 # Ubuntu/Debian
-sudo apt-get install libimobiledevice6 libimobiledevice-utils
+sudo apt-get install libimobiledevice6 libimobiledevice-utils ideviceinstaller
 
 # CentOS/RHEL
-sudo yum install libimobiledevice
+sudo yum install libimobiledevice ideviceinstaller
 ```
+
+**重要提示**：
+- `libimobiledevice` 提供基础的设备连接功能
+- `ideviceinstaller` 是应用管理的核心工具，用于安装、卸载和查看已安装的应用
+- 如果缺少 `ideviceinstaller`，应用管理相关功能（`install_app`, `uninstall_app`, `list_apps` 等）将无法使用
 
 ### Python 包安装
 
