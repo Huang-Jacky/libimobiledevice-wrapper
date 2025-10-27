@@ -17,6 +17,18 @@
 
 ### 前置要求
 
+**1. Python 包依赖（自动安装）**
+
+```bash
+# 自动安装所有 Python 依赖
+pip install libimobiledevice-wrapper
+
+# 或手动安装
+pip install -r requirements.txt
+```
+
+**2. 系统依赖（需要手动安装）**
+
 确保系统已安装 libimobiledevice 和 ideviceinstaller：
 
 ```bash
