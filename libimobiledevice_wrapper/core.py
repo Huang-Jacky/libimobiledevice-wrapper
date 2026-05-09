@@ -1211,8 +1211,12 @@ class LogMonitor:
     def _is_new_log_entry(self, line: str) -> bool:
         """检查是否是新的日志条目（有时间戳）"""
         import re
-        pattern = r'^(\w{3} \d{1,2} \d{2}:\d{2}:\d{2}) ([^[]+)\[(\d+)\]'
-        return bool(re.match(pattern, line))
+        # 兼容两类常见输出：
+        # 1) 带时间戳: "May  9 12:34:56 process[123] ..."
+        # 2) 无时间戳: "process[123] ..."
+        timestamped_pattern = r'^(\w{3} \d{1,2} \d{2}:\d{2}:\d{2}) ([^[]+)\[(\d+)\]'
+        simple_pattern = r'^([^[]+)\[(\d+)\] '
+        return bool(re.match(timestamped_pattern, line) or re.match(simple_pattern, line))
 
     def _check_group_match(self, lines: List[str]) -> bool:
         """检查日志组是否匹配关键字"""
